@@ -33,7 +33,10 @@ setup(
     zip_safe=False,
     setup_requires=['setuptools_scm'],
     use_scm_version=True,
-    install_requires=['waitress', 'nagare-server-http'],
+    install_requires=[
+        'ws4py', 'waitress',
+        'nagare-server-http'
+    ],
     entry_points='''
         [nagare.publishers]
         waitress = nagare.publishers.waitress_publisher:Publisher
