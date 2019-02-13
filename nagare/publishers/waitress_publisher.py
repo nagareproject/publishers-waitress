@@ -27,16 +27,19 @@ def create_config_spec():
         adjustments.asoctal: 'integer'
     }
 
-    black_list = ('trusted_proxy', 'expose_tracebacks', 'listen')
+    black_list = ('trusted_proxy',)
+
+    config = adjustments.Adjustments()
 
     config_spec = {}
-    for k, v in adjustments.Adjustments._params:
+    for k, v in config._params:
         t = types.get(v)
         if (k not in black_list) and (t is not None):
-            config_spec[k] = '%s(default=%r)' % (t, getattr(adjustments.Adjustments, k))
+            config_spec[k] = '%s(default=%r)' % (t, getattr(config, k))
 
     return dict(
         config_spec,
+        trusted_proxy='list(default=list(""))',
         host='string(default="127.0.0.1")',
         ident='string(default="HTTP server")',
         threads='string(default=%r)' % adjustments.Adjustments.threads,
@@ -98,10 +101,14 @@ class Publisher(http_publisher.Publisher):
     def create_websocket(environ):
         return WebSocket(None) if environ.get('HTTP_UPGRADE', '') == 'websocket' else None
 
-    def _serve(self, app, reloader_service=None, **config):
-        server.logging_dispatcher.logger = self.logger
+    def _serve(self, app, unix_socket, reloader_service=None, **config):
+        if unix_socket:
+            del config['host']
+            del config['port']
+            config['unix_socket'] = unix_socket
 
         s = server.create_server(app, **config)
+        s.logger = self.logger
         s.channel_class = Channel
 
         s.print_listen('Serving on http://{}:{}')
