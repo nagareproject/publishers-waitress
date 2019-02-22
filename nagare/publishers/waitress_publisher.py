@@ -10,6 +10,7 @@
 """The Waitress publisher"""
 
 import multiprocessing
+from functools import partial
 
 from ws4py.websocket import WebSocket
 from waitress import adjustments, server, task
@@ -19,7 +20,7 @@ from nagare.server import http_publisher
 task.hop_by_hop -= {'upgrade', 'connection'}
 
 
-def create_config_spec():
+def create_config_spec(config_spec):
     types = {
         str: 'string',
         int: 'integer',
@@ -31,7 +32,6 @@ def create_config_spec():
 
     config = adjustments.Adjustments()
 
-    config_spec = {}
     for k, v in config._params:
         t = types.get(v)
         if (k not in black_list) and (t is not None):
@@ -49,6 +49,7 @@ def create_config_spec():
 
 
 class WSGITask(task.WSGITask):
+
     def set_websocket(self, websocket, environ):
         if websocket is not None:
             websocket.sock = self.channel
@@ -85,7 +86,7 @@ class Channel(server.HTTPChannel):
 class Publisher(http_publisher.Publisher):
     """The Waitress publisher"""
 
-    CONFIG_SPEC = create_config_spec()
+    CONFIG_SPEC = create_config_spec(http_publisher.Publisher.CONFIG_SPEC.copy())
 
     def __init__(self, name, dist, threads, **config):
         """Initialization
@@ -97,19 +98,32 @@ class Publisher(http_publisher.Publisher):
 
         super(Publisher, self).__init__(name, dist, threads=threads, **config)
 
+    @property
+    def endpoint(self):
+        socket = self.plugin_config['unix_socket']
+        if socket:
+            endpoint = 'unix:{} -> '.format(socket)
+        else:
+            endpoint = 'http://{}:{}'.format(self.plugin_config['host'], self.plugin_config['port'])
+
+        return not socket, endpoint
+
     @staticmethod
     def create_websocket(environ):
         return WebSocket(None) if environ.get('HTTP_UPGRADE', '') == 'websocket' else None
 
     def _serve(self, app, unix_socket, reloader_service=None, **config):
+        super(Publisher, self)._serve(app)
+
         if unix_socket:
             del config['host']
             del config['port']
             config['unix_socket'] = unix_socket
 
-        s = server.create_server(app, **config)
+        config = {k: v for k, v in config.items() if k not in http_publisher.Publisher.CONFIG_SPEC}
+
+        s = server.create_server(partial(self.start_handle_request, app), **config)
         s.logger = self.logger
         s.channel_class = Channel
 
-        s.print_listen('Serving on http://{}:{}')
         s.run()
