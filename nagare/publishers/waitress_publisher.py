@@ -50,6 +50,14 @@ def create_config_spec(config_spec):
 
 class WSGITask(task.WSGITask):
 
+    @property
+    def close_on_finish(self):
+        return False
+
+    @close_on_finish.setter
+    def close_on_finish(self, v):
+        pass
+
     def set_websocket(self, websocket, environ):
         if websocket is not None:
             websocket.sock = self.channel
