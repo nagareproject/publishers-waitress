@@ -15,7 +15,7 @@ from functools import partial
 from ws4py.websocket import WebSocket
 from waitress import adjustments, server, task
 
-from nagare.server import http_publisher
+from nagare.server import mvc_publisher
 
 task.hop_by_hop -= {'upgrade', 'connection'}
 
@@ -91,10 +91,10 @@ class Channel(server.HTTPChannel):
         super(Channel, self).handle_close()
 
 
-class Publisher(http_publisher.Publisher):
+class Publisher(mvc_publisher.Publisher):
     """The Waitress publisher"""
 
-    CONFIG_SPEC = create_config_spec(http_publisher.Publisher.CONFIG_SPEC.copy())
+    CONFIG_SPEC = create_config_spec(mvc_publisher.Publisher.CONFIG_SPEC.copy())
 
     def __init__(self, name, dist, threads, **config):
         """Initialization
@@ -120,15 +120,15 @@ class Publisher(http_publisher.Publisher):
     def create_websocket(environ):
         return WebSocket(None) if environ.get('HTTP_UPGRADE', '') == 'websocket' else None
 
-    def _serve(self, app, unix_socket, reloader_service=None, **config):
-        super(Publisher, self)._serve(app)
+    def _serve(self, app, unix_socket, services_service, reloader_service=None, **config):
+        services_service(super(Publisher, self)._serve, app)
 
         if unix_socket:
             del config['host']
             del config['port']
             config['unix_socket'] = unix_socket
 
-        config = {k: v for k, v in config.items() if k not in http_publisher.Publisher.CONFIG_SPEC}
+        config = {k: v for k, v in config.items() if k not in mvc_publisher.Publisher.CONFIG_SPEC}
 
         s = server.create_server(partial(self.start_handle_request, app), **config)
         s.logger = self.logger
