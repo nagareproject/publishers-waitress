@@ -20,7 +20,7 @@ from nagare.server import mvc_publisher
 task.hop_by_hop -= {'upgrade', 'connection'}
 
 
-def create_config_spec(config_spec):
+def create_config_spec():
     types = {
         str: 'string',
         int: 'integer',
@@ -32,20 +32,23 @@ def create_config_spec(config_spec):
 
     config = adjustments.Adjustments()
 
+    config_spec = {}
+
     for k, v in config._params:
         t = types.get(v)
         if (k not in black_list) and (t is not None):
             config_spec[k] = '%s(default=%r)' % (t, getattr(config, k))
 
-    return dict(
-        config_spec,
-        trusted_proxy='list(default=list(""))',
-        host='string(default="127.0.0.1")',
-        ident='string(default="HTTP server")',
-        threads='string(default=%r)' % adjustments.Adjustments.threads,
-        unix_socket='string(default="")',
-        unix_socket_perms='string(default=%o)' % adjustments.Adjustments.unix_socket_perms
-    )
+    config_spec.update({
+        'trusted_proxy': 'list(default=list(""))',
+        'host': 'string(default="127.0.0.1")',
+        'ident': 'string(default="HTTP server")',
+        'threads': 'string(default=%r)' % adjustments.Adjustments.threads,
+        'unix_socket': 'string(default="")',
+        'unix_socket_perms': 'string(default=%o)' % adjustments.Adjustments.unix_socket_perms
+    })
+
+    return config_spec
 
 
 class WSGITask(task.WSGITask):
@@ -94,7 +97,7 @@ class Channel(server.HTTPChannel):
 class Publisher(mvc_publisher.Publisher):
     """The Waitress publisher"""
 
-    CONFIG_SPEC = create_config_spec(mvc_publisher.Publisher.CONFIG_SPEC.copy())
+    CONFIG_SPEC = dict(mvc_publisher.Publisher.CONFIG_SPEC, **create_config_spec())
 
     def __init__(self, name, dist, threads, **config):
         """Initialization
@@ -102,7 +105,7 @@ class Publisher(mvc_publisher.Publisher):
         self.has_multi_threads = True
 
         nb_cpus = multiprocessing.cpu_count()
-        threads = eval(threads or '1', {}, {'NB_CPUS': nb_cpus})
+        threads = eval(str(threads) or '1', {}, {'NB_CPUS': nb_cpus})
 
         super(Publisher, self).__init__(name, dist, threads=threads, **config)
 
