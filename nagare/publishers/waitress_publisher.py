@@ -15,7 +15,7 @@ from functools import partial
 from ws4py.websocket import WebSocket
 from waitress import adjustments, server, task
 
-from nagare.server import mvc_publisher
+from nagare.server import http_publisher
 
 task.hop_by_hop -= {'upgrade', 'connection'}
 
@@ -94,10 +94,10 @@ class Channel(server.HTTPChannel):
         super(Channel, self).handle_close()
 
 
-class Publisher(mvc_publisher.Publisher):
+class Publisher(http_publisher.Publisher):
     """The Waitress publisher"""
 
-    CONFIG_SPEC = dict(mvc_publisher.Publisher.CONFIG_SPEC, **create_config_spec())
+    CONFIG_SPEC = dict(http_publisher.Publisher.CONFIG_SPEC, **create_config_spec())
 
     def __init__(self, name, dist, threads, **config):
         """Initialization
@@ -131,7 +131,7 @@ class Publisher(mvc_publisher.Publisher):
             del config['port']
             config['unix_socket'] = unix_socket
 
-        config = {k: v for k, v in config.items() if k not in mvc_publisher.Publisher.CONFIG_SPEC}
+        config = {k: v for k, v in config.items() if k not in http_publisher.Publisher.CONFIG_SPEC}
 
         s = server.create_server(partial(self.start_handle_request, app), **config)
         s.logger = self.logger
