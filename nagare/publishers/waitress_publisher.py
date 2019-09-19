@@ -13,6 +13,7 @@ import multiprocessing
 from functools import partial
 
 from ws4py.websocket import WebSocket
+from ws4py.server import wsgiutils
 from waitress import adjustments, server, task
 
 from nagare.server import http_publisher
@@ -94,10 +95,18 @@ class Channel(server.HTTPChannel):
         super(Channel, self).handle_close()
 
 
+class WebSocketWSGIApplication(wsgiutils.WebSocketWSGIApplication):
+
+    def __call__(self, environ, start_response):
+        environ['ws4py.socket'] = None
+        return super(WebSocketWSGIApplication, self).__call__(environ, start_response)
+
+
 class Publisher(http_publisher.Publisher):
     """The Waitress publisher"""
 
     CONFIG_SPEC = dict(http_publisher.Publisher.CONFIG_SPEC, **create_config_spec())
+    websocket_app = WebSocketWSGIApplication
 
     def __init__(self, name, dist, threads, **config):
         """Initialization
