@@ -40,12 +40,13 @@ def create_config_spec():
         if (k not in black_list) and (t is not None):
             config_spec[k] = '%s(default=%r)' % (t, getattr(config, k))
 
+    del config_spec['unix_socket']
     config_spec.update({
         'trusted_proxy': 'list(default=list(""))',
         'host': 'string(default="127.0.0.1")',
         'ident': 'string(default="HTTP server")',
         'threads': 'string(default=%r)' % adjustments.Adjustments.threads,
-        'unix_socket': 'string(default="")',
+        'socket': 'string(default="")',
         'unix_socket_perms': 'string(default=%o)' % adjustments.Adjustments.unix_socket_perms
     })
 
@@ -120,7 +121,7 @@ class Publisher(http_publisher.Publisher):
 
     @property
     def endpoint(self):
-        socket = self.plugin_config['unix_socket']
+        socket = self.plugin_config['socket']
         if socket:
             endpoint = 'unix:{} -> '.format(socket)
         else:
@@ -132,13 +133,13 @@ class Publisher(http_publisher.Publisher):
     def create_websocket(environ):
         return WebSocket(None) if environ.get('HTTP_UPGRADE', '') == 'websocket' else None
 
-    def _serve(self, app, unix_socket, services_service, reloader_service=None, **config):
+    def _serve(self, app, socket, services_service, reloader_service=None, **config):
         services_service(super(Publisher, self)._serve, app)
 
-        if unix_socket:
+        if socket:
             del config['host']
             del config['port']
-            config['unix_socket'] = unix_socket
+            config['unix_socket'] = socket
 
         config = {k: v for k, v in config.items() if k not in http_publisher.Publisher.CONFIG_SPEC}
 
