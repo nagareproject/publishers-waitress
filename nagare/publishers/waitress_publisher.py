@@ -123,17 +123,19 @@ class Publisher(http_publisher.Publisher):
     def endpoint(self):
         socket = self.plugin_config['socket']
         if socket:
-            endpoint = 'unix:{} -> '.format(socket)
+            bind = socket
+            endpoint = 'unix:{} -> '.format(bind)
         else:
-            endpoint = 'http://{}:{}'.format(self.plugin_config['host'], self.plugin_config['port'])
+            bind = '{}:{}'.format(self.plugin_config['host'], self.plugin_config['port'])
+            endpoint = 'http://' + bind
 
-        return not socket, endpoint
+        return not socket, False, bind, endpoint
 
     @staticmethod
     def create_websocket(environ):
         return WebSocket(None) if environ.get('HTTP_UPGRADE', '') == 'websocket' else None
 
-    def _serve(self, app, socket, services_service, reloader_service=None, **config):
+    def _serve(self, app, socket, services_service, **config):
         services_service(super(Publisher, self)._serve, app)
 
         if socket:
