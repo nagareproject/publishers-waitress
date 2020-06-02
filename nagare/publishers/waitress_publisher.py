@@ -133,7 +133,7 @@ class Publisher(http_publisher.Publisher):
 
     @staticmethod
     def create_websocket(environ):
-        return WebSocket(None) if environ.get('HTTP_UPGRADE', '') == 'websocket' else None
+        return WebSocket(None) if environ.get('HTTP_UPGRADE', '').lower() == 'websocket' else None
 
     def _serve(self, app, socket, services_service, **config):
         services_service(super(Publisher, self)._serve, app)
