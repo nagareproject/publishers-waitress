@@ -135,6 +135,12 @@ class Publisher(http_publisher.Publisher):
     def create_websocket(environ):
         return WebSocket(None) if environ.get('HTTP_UPGRADE', '').lower() == 'websocket' else None
 
+    def start_handle_request(self, app, environ, start_response):
+        def _(status, headers):
+            return None if start_response.__closure__[0].cell_contents.complete else start_response(status, headers)
+
+        return super().start_handle_request(app, environ, _)
+
     def _serve(self, app, socket, services_service, **config):
         services_service(super(Publisher, self)._serve, app)
 
