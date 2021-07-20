@@ -42,12 +42,12 @@ def create_config_spec():
 
     del config_spec['unix_socket']
     config_spec.update({
-        'trusted_proxy': 'list(default=list(""))',
+        'trusted_proxy': 'string_list(default=list(""))',
         'host': 'string(default="127.0.0.1")',
         'ident': 'string(default="HTTP server")',
-        'threads': 'string(default=%r)' % adjustments.Adjustments.threads,
+        'threads': 'string(default="%r")' % adjustments.Adjustments.threads,
         'socket': 'string(default="")',
-        'unix_socket_perms': 'string(default=%o)' % adjustments.Adjustments.unix_socket_perms
+        'unix_socket_perms': 'string(default="%o")' % adjustments.Adjustments.unix_socket_perms
     })
 
     return config_spec
@@ -135,11 +135,11 @@ class Publisher(http_publisher.Publisher):
     def create_websocket(environ):
         return WebSocket(None) if environ.get('HTTP_UPGRADE', '').lower() == 'websocket' else None
 
-    def start_handle_request(self, app, environ, start_response):
+    def start_handle_request(self, services_service, app, environ, start_response):
         def _(status, headers):
             return None if start_response.__closure__[0].cell_contents.complete else start_response(status, headers)
 
-        return super().start_handle_request(app, environ, _)
+        return services_service(super().start_handle_request, app, environ, _)
 
     def _serve(self, app, socket, services_service, **config):
         services_service(super(Publisher, self)._serve, app)
@@ -151,7 +151,7 @@ class Publisher(http_publisher.Publisher):
 
         config = {k: v for k, v in config.items() if k not in http_publisher.Publisher.CONFIG_SPEC}
 
-        s = server.create_server(partial(self.start_handle_request, app), **config)
+        s = server.create_server(partial(self.start_handle_request, services_service, app), **config)
         s.logger = self.logger
         s.channel_class = Channel
 
