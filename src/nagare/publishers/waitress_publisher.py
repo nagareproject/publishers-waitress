@@ -1,5 +1,5 @@
 # --
-# Copyright (c) 2008-2022 Net-ng.
+# Copyright (c) 2008-2023 Net-ng.
 # All rights reserved.
 #
 # This software is licensed under the BSD License, as described in
@@ -7,27 +7,21 @@
 # this distribution.
 # --
 
-"""The Waitress publisher"""
+"""The Waitress publisher."""
 
-import multiprocessing
 from functools import partial
-
-from ws4py.websocket import WebSocket
-from ws4py.server import wsgiutils
-from waitress import adjustments, server, task
+import multiprocessing
 
 from nagare.server import http_publisher
+from waitress import adjustments, server, task
+from ws4py.server import wsgiutils
+from ws4py.websocket import WebSocket
 
 task.hop_by_hop -= {'upgrade', 'connection'}
 
 
 def create_config_spec():
-    types = {
-        str: 'string',
-        int: 'integer',
-        adjustments.asbool: 'boolean',
-        adjustments.asoctal: 'integer'
-    }
+    types = {str: 'string', int: 'integer', adjustments.asbool: 'boolean', adjustments.asoctal: 'integer'}
 
     black_list = ('trusted_proxy',)
 
@@ -41,20 +35,21 @@ def create_config_spec():
             config_spec[k] = '%s(default=%r)' % (t, getattr(config, k))
 
     del config_spec['unix_socket']
-    config_spec.update({
-        'trusted_proxy': 'string_list(default=list(""))',
-        'host': 'string(default="127.0.0.1")',
-        'ident': 'string(default="HTTP server")',
-        'threads': 'string(default="%r")' % adjustments.Adjustments.threads,
-        'socket': 'string(default="")',
-        'unix_socket_perms': 'string(default="%o")' % adjustments.Adjustments.unix_socket_perms
-    })
+    config_spec.update(
+        {
+            'trusted_proxy': 'string_list(default=list(""))',
+            'host': 'string(default="127.0.0.1")',
+            'ident': 'string(default="HTTP server")',
+            'threads': 'string(default="%r")' % adjustments.Adjustments.threads,
+            'socket': 'string(default="")',
+            'unix_socket_perms': 'string(default="%o")' % adjustments.Adjustments.unix_socket_perms,
+        }
+    )
 
     return config_spec
 
 
 class WSGITask(task.WSGITask):
-
     @property
     def close_on_finish(self):
         return False
@@ -97,21 +92,19 @@ class Channel(server.HTTPChannel):
 
 
 class WebSocketWSGIApplication(wsgiutils.WebSocketWSGIApplication):
-
     def __call__(self, environ, start_response):
         environ['ws4py.socket'] = None
         return super(WebSocketWSGIApplication, self).__call__(environ, start_response)
 
 
 class Publisher(http_publisher.Publisher):
-    """The Waitress publisher"""
+    """The Waitress publisher."""
 
     CONFIG_SPEC = dict(http_publisher.Publisher.CONFIG_SPEC, **create_config_spec())
     websocket_app = WebSocketWSGIApplication
 
     def __init__(self, name, dist, threads, **config):
-        """Initialization
-        """
+        """Initialization."""
         self.has_multi_threads = True
 
         nb_cpus = multiprocessing.cpu_count()
