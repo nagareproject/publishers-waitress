@@ -1,5 +1,5 @@
 # --
-# Copyright (c) 2008-2023 Net-ng.
+# Copyright (c) 2008-2024 Net-ng.
 # All rights reserved.
 #
 # This software is licensed under the BSD License, as described in
@@ -9,13 +9,14 @@
 
 """The Waitress publisher."""
 
-from functools import partial
 import multiprocessing
+from functools import partial
 
-from nagare.server import http_publisher
-from waitress import adjustments, server, task
+from waitress import task, server, adjustments
 from ws4py.server import wsgiutils
 from ws4py.websocket import WebSocket
+
+from nagare.server import http_publisher
 
 task.hop_by_hop -= {'upgrade', 'connection'}
 
@@ -108,7 +109,7 @@ class Publisher(http_publisher.Publisher):
         self.has_multi_threads = True
 
         nb_cpus = multiprocessing.cpu_count()
-        threads = eval(str(threads) or '1', {}, {'NB_CPUS': nb_cpus})
+        threads = eval(str(threads) or '1', {}, {'NB_CPUS': nb_cpus})  # noqa: S307
 
         super(Publisher, self).__init__(name, dist, threads=threads, **config)
 
