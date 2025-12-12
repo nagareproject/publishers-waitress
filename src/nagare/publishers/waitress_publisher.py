@@ -1,5 +1,5 @@
 # --
-# Copyright (c) 2008-2024 Net-ng.
+# Copyright (c) 2014-2025 Net-ng.
 # All rights reserved.
 #
 # This software is licensed under the BSD License, as described in
@@ -65,7 +65,7 @@ class WSGITask(task.WSGITask):
             self.channel.websocket = websocket
 
     def get_environment(self):
-        environ = super(WSGITask, self).get_environment()
+        environ = super().get_environment()
         environ['set_websocket'] = self.set_websocket
 
         return environ
@@ -75,11 +75,11 @@ class Channel(server.HTTPChannel):
     task_class = WSGITask
 
     def __init__(self, *args, **kw):
-        super(Channel, self).__init__(*args, **kw)
+        super().__init__(*args, **kw)
         self.websocket = None
 
     def received(self, data):
-        return (self.websocket.process if self.websocket else super(Channel, self).received)(data)
+        return (self.websocket.process if self.websocket else super().received)(data)
 
     def sendall(self, b):
         self.send(b)
@@ -89,19 +89,19 @@ class Channel(server.HTTPChannel):
             self.websocket.closed(None)
             self.websocket = None
 
-        super(Channel, self).handle_close()
+        super().handle_close()
 
 
 class WebSocketWSGIApplication(wsgiutils.WebSocketWSGIApplication):
     def __call__(self, environ, start_response):
         environ['ws4py.socket'] = None
-        return super(WebSocketWSGIApplication, self).__call__(environ, start_response)
+        return super().__call__(environ, start_response)
 
 
 class Publisher(http_publisher.Publisher):
     """The Waitress publisher."""
 
-    CONFIG_SPEC = dict(http_publisher.Publisher.CONFIG_SPEC, **create_config_spec())
+    CONFIG_SPEC = http_publisher.Publisher.CONFIG_SPEC | create_config_spec()
     websocket_app = WebSocketWSGIApplication
 
     def __init__(self, name, dist, threads, **config):
@@ -111,14 +111,14 @@ class Publisher(http_publisher.Publisher):
         nb_cpus = multiprocessing.cpu_count()
         threads = eval(str(threads) or '1', {}, {'NB_CPUS': nb_cpus})  # noqa: S307
 
-        super(Publisher, self).__init__(name, dist, threads=threads, **config)
+        super().__init__(name, dist, threads=threads, **config)
 
     @property
     def endpoint(self):
         socket = self.plugin_config['socket']
         if socket:
             bind = socket
-            endpoint = 'unix:{} -> '.format(bind)
+            endpoint = f'unix:{bind} -> '
         else:
             bind = '{}:{}'.format(self.plugin_config['host'], self.plugin_config['port'])
             endpoint = 'http://' + bind
@@ -136,7 +136,7 @@ class Publisher(http_publisher.Publisher):
         return services_service(super().start_handle_request, app, environ, _)
 
     def _serve(self, app, socket, services_service, **config):
-        services_service(super(Publisher, self)._serve, app)
+        services_service(super()._serve, app)
 
         if socket:
             del config['host']
