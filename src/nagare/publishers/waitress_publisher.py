@@ -10,13 +10,10 @@
 """The Waitress publisher."""
 
 import multiprocessing
-from functools import partial
 
 from waitress import task, server, adjustments
-from ws4py.server import wsgiutils
-from ws4py.websocket import WebSocket
 
-from nagare.server import http_publisher
+from nagare.publishers import http_publisher
 
 task.hop_by_hop -= {'upgrade', 'connection'}
 
@@ -51,22 +48,9 @@ def create_config_spec():
 
 
 class WSGITask(task.WSGITask):
-    @property
-    def close_on_finish(self):
-        return False
-
-    @close_on_finish.setter
-    def close_on_finish(self, v):
-        pass
-
-    def set_websocket(self, websocket, environ):
-        if websocket is not None:
-            websocket.sock = self.channel
-            self.channel.websocket = websocket
-
     def get_environment(self):
         environ = super().get_environment()
-        environ['set_websocket'] = self.set_websocket
+        environ['ws4py.socket'] = self.channel.socket
 
         return environ
 
@@ -74,35 +58,11 @@ class WSGITask(task.WSGITask):
 class Channel(server.HTTPChannel):
     task_class = WSGITask
 
-    def __init__(self, *args, **kw):
-        super().__init__(*args, **kw)
-        self.websocket = None
-
-    def received(self, data):
-        return (self.websocket.process if self.websocket else super().received)(data)
-
-    def sendall(self, b):
-        self.send(b)
-
-    def handle_close(self):
-        if self.websocket is not None:
-            self.websocket.closed(None)
-            self.websocket = None
-
-        super().handle_close()
-
-
-class WebSocketWSGIApplication(wsgiutils.WebSocketWSGIApplication):
-    def __call__(self, environ, start_response):
-        environ['ws4py.socket'] = None
-        return super().__call__(environ, start_response)
-
 
 class Publisher(http_publisher.Publisher):
     """The Waitress publisher."""
 
     CONFIG_SPEC = http_publisher.Publisher.CONFIG_SPEC | create_config_spec()
-    websocket_app = WebSocketWSGIApplication
 
     def __init__(self, name, dist, threads, **config):
         """Initialization."""
@@ -125,16 +85,6 @@ class Publisher(http_publisher.Publisher):
 
         return not socket, False, bind, endpoint
 
-    @staticmethod
-    def create_websocket(environ):
-        return WebSocket(None) if environ.get('HTTP_UPGRADE', '').lower() == 'websocket' else None
-
-    def start_handle_request(self, services_service, app, environ, start_response):
-        def _(status, headers):
-            return None if start_response.__closure__[0].cell_contents.complete else start_response(status, headers)
-
-        return services_service(super().start_handle_request, app, environ, _)
-
     def _serve(self, app, socket, services_service, **config):
         services_service(super()._serve, app)
 
@@ -145,7 +95,10 @@ class Publisher(http_publisher.Publisher):
 
         config = {k: v for k, v in config.items() if k not in http_publisher.Publisher.CONFIG_SPEC}
 
-        s = server.create_server(partial(self.start_handle_request, services_service, app), **config)
+        s = server.create_server(
+            lambda environ, start_response: services_service(self.start_handle_request, app, environ, start_response),
+            **config,
+        )
         s.logger = self.logger
         s.channel_class = Channel
 
